@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tính Số Tiền</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: #f4f6f9; color: #333; padding-bottom: 80px; }
+        header { background: #0288d1; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+        header h1 { font-size: 18px; font-weight: 600; }
+        .header-actions button { background: transparent; border: none; color: white; font-size: 20px; margin-left: 12px; cursor: pointer; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; padding: 15px; }
+        .card { background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); text-align: center; cursor: pointer; transition: transform 0.1s; position: relative; }
+        .card:active { transform: scale(0.98); }
+        .card h3 { font-size: 16px; margin-bottom: 5px; color: #222; }
+        .card p { font-size: 13px; color: #0288d1; font-weight: bold; }
+        .card .btn-delete { position: absolute; top: 5px; right: 8px; color: #bbb; font-size: 16px; border: none; background: none; }
+        .fab { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; background: #0288d1; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: none; cursor: pointer; }
+        
+        /* Modal Style */
+        .modal { display: none; position: fixed; top:0; left:0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; border-radius: 16px; width: 100%; max-width: 400px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
+        .modal-content h2 { font-size: 18px; margin-bottom: 15px; text-align: center; color: #0288d1; }
+        .input-group { margin-bottom: 12px; }
+        .input-group label { font-size: 12px; color: #666; display: block; margin-bottom: 4px; }
+        .input-group input, .input-group textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; outline: none; }
+        .radio-group { display: flex; gap: 20px; margin: 10px 0; justify-content: center; }
+        .result-box { background: #e1f5fe; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 18px; color: #0288d1; margin: 12px 0; }
+        .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; }
+        .btn { padding: 10px 16px; border-radius: 8px; border: none; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .btn-primary { background: #0288d1; color: white; }
+        .btn-secondary { background: #eee; color: #555; }
+        .btn-danger { background: #e53935; color: white; }
+        
+        .qr-img { display: block; margin: 15px auto; width: 200px; height: 200px; }
+        .bill-text { font-family: monospace; white-space: pre-wrap; font-size: 13px; background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Tính Số Tiền</h1>
+        <div class="header-actions">
+            <button onclick="openReceiptModal()" title="Hóa đơn">🧾</button>
+            <button onclick="openShareModal()" title="Chia sẻ">📤</button>
+            <button onclick="openImportModal()" title="Nhập cấu hình">📥</button>
+        </div>
+    </header>
+
+    <div class="grid" id="itemsGrid"></div>
+
+    <button class="fab" onclick="openAddModal()">+</button>
+
+    <!-- Modal Thêm Mặt Hàng -->
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <h2>Thêm mặt hàng mới</h2>
+            <div class="input-group">
+                <label>Tên mặt hàng</label>
+                <input type="text" id="addName" placeholder="VD: Táo">
+            </div>
+            <div class="input-group">
+                <label>Giá 1 Kg (VNĐ)</label>
+                <input type="number" id="addPrice" placeholder="VD: 50000">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeModal('addModal')">Hủy</button>
+                <button class="btn btn-primary" onclick="saveNewItem()">Tạo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Tính Tiền -->
+    <div class="modal" id="calcModal">
+        <div class="modal-content">
+            <h2 id="calcTitle">Tính tiền</h2>
+            <div class="input-group">
+                <label>Số lượng</label>
+                <input type="text" id="calcWeight" placeholder="VD: 0.5 hoặc 500" oninput="calculateTotal()">
+            </div>
+            <div class="radio-group">
+                <label><input type="radio" name="unit" value="kg" checked onchange="calculateTotal()"> Kg</label>
+                <label><input type="radio" name="unit" value="g" onchange="calculateTotal()"> Gam (g)</label>
+            </div>
+            <div class="result-box" id="calcResult">Thành tiền: 0 VNĐ</div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeModal('calcModal')">Đóng</button>
+                <button class="btn btn-primary" onclick="addToBill()">Thêm vào hóa đơn</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Hóa Đơn -->
+    <div class="modal" id="receiptModal">
+        <div class="modal-content">
+            <h2>🧾 HÓA ĐƠN BÁN HÀNG</h2>
+            <div class="bill-text" id="receiptContent">Chưa có món nào.</div>
+            <div class="modal-buttons">
+                <button class="btn btn-danger" onclick="clearBill()">Xóa tạo mới</button>
+                <button class="btn btn-primary" onclick="shareBill()">Chia sẻ</button>
+                <button class="btn btn-secondary" onclick="closeModal('receiptModal')">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Chia Sẻ QR -->
+    <div class="modal" id="shareModal">
+        <div class="modal-content" style="text-align: center;">
+            <h2>📤 Quét mã QR cấu hình</h2>
+            <img id="qrImage" class="qr-img" src="" alt="Mã QR">
+            <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Dùng máy khác quét mã hoặc bấm sao chép mã gửi qua tin nhắn.</p>
+            <button class="btn btn-primary" style="width: 100%; margin-bottom: 10px;" onclick="copyConfigCode()">📋 Sao chép mã cấu hình</button>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeModal('shareModal')">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nhập Cấu Hình -->
+    <div class="modal" id="importModal">
+        <div class="modal-content">
+            <h2>📥 Nhập cấu hình</h2>
+            <div class="input-group">
+                <label>Dán mã cấu hình (JSON)</label>
+                <textarea id="importCode" rows="4" placeholder="Dán mã vào đây..."></textarea>
+            </div>
+            <button class="btn btn-secondary" style="width: 100%; margin-bottom: 15px;" onclick="pasteFromClipboard()">📋 Dán nhanh từ bộ nhớ tạm</button>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeModal('importModal')">Hủy</button>
+                <button class="btn btn-primary" onclick="processImport()">Nạp cấu hình</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let listItems = JSON.parse(localStorage.getItem('saved_data') || '[]');
+        let historyList = [];
+        let currentItem = null;
+        let currentTotal = 0;
+
+        function renderItems() {
+            const grid = document.getElementById('itemsGrid');
+            grid.innerHTML = '';
+            listItems.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.onclick = () => openCalcModal(index);
+                card.innerHTML = `
+                    <button class="btn-delete" onclick="deleteItem(event, ${index})">✕</button>
+                    <h3>${item.name}</h3>
+                    <p>Giá: ${Number(item.price).toLocaleString('vi-VN')} đ/kg</p>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function saveItems() {
+            localStorage.setItem('saved_data', JSON.stringify(listItems));
+            renderItems();
+        }
+
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        function openAddModal() {
+            document.getElementById('addName').value = '';
+            document.getElementById('addPrice').value = '';
+            openModal('addModal');
+        }
+
+        function saveNewItem() {
+            const name = document.getElementById('addName').value.trim();
+            const price = document.getElementById('addPrice').value.trim();
+            if (name && price) {
+                listItems.push({ name, price });
+                saveItems();
+                closeModal('addModal');
+            } else {
+                alert('Vui lòng nhập đầy đủ thông tin!');
+            }
+        }
+
+        function deleteItem(e, index) {
+            e.stopPropagation();
+            if (confirm(`Bạn có chắc muốn xóa '${listItems[index].name}'?`)) {
+                listItems.splice(index, 1);
+                saveItems();
+            }
+        }
+
+        function openCalcModal(index) {
+            currentItem = listItems[index];
+            document.getElementById('calcTitle').innerText = 'Tính tiền: ' + currentItem.name;
+            document.getElementById('calcWeight').value = '';
+            document.getElementById('calcResult').innerText = 'Thành tiền: 0 VNĐ';
+            currentTotal = 0;
+            openModal('calcModal');
+        }
+
+        function calculateTotal() {
+            let input = document.getElementById('calcWeight').value.trim().replace(',', '.');
+            const unit = document.querySelector('input[name="unit"]:checked').value;
+            if (!input || isNaN(input)) {
+                currentTotal = 0;
+                document.getElementById('calcResult').innerText = 'Thành tiền: 0 VNĐ';
+                return;
+            }
+            let val = parseFloat(input);
+            let price = parseFloat(currentItem.price);
+            currentTotal = unit === 'kg' ? val * price : (val / 1000) * price;
+            document.getElementById('calcResult').innerText = 'Thành tiền: ' + Math.round(currentTotal).toLocaleString('vi-VN') + ' VNĐ';
+        }
+
+        function addToBill() {
+            let rawInput = document.getElementById('calcWeight').value.trim();
+            if (!rawInput || currentTotal <= 0) {
+                alert('Vui lòng nhập số lượng hợp lệ!');
+                return;
+            }
+            const unit = document.querySelector('input[name="unit"]:checked').value;
+            historyList.push({
+                name: currentItem.name,
+                detail: `${rawInput} ${unit}`,
+                total: currentTotal
+            });
+            alert(`Đã thêm ${currentItem.name} vào hóa đơn!`);
+            closeModal('calcModal');
+        }
+
+        function openReceiptModal() {
+            if (historyList.length === 0) {
+                alert('Hóa đơn hiện tại đang trống!');
+                return;
+            }
+            let text = '';
+            let grandTotal = 0;
+            historyList.forEach((item, index) => {
+                grandTotal += item.total;
+                text += `${index + 1}. ${item.name} (${item.detail})\n   ➔ ${Math.round(item.total).toLocaleString('vi-VN')} VNĐ\n\n`;
+            });
+            text += `------------------------------\nTỔNG CỘNG: ${Math.round(grandTotal).toLocaleString('vi-VN')} VNĐ`;
+            document.getElementById('receiptContent').innerText = text;
+            openModal('receiptModal');
+        }
+
+        function clearBill() {
+            historyList = [];
+            closeModal('receiptModal');
+            alert('Đã xóa toàn bộ hóa đơn!');
+        }
+
+        function shareBill() {
+            const text = "🧾 CHI TIẾT HÓA ĐƠN:\n\n" + document.getElementById('receiptContent').innerText;
+            if (navigator.share) {
+                navigator.share({ text: text });
+            } else {
+                navigator.clipboard.writeText(text);
+                alert('Đã sao chép hóa đơn vào bộ nhớ tạm!');
+            }
+        }
+
+        function openShareModal() {
+            if (listItems.length === 0) {
+                alert('Chưa có cấu hình nào để chia sẻ!');
+                return;
+            }
+            const jsonStr = JSON.stringify(listItems);
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(jsonStr)}`;
+            document.getElementById('qrImage').src = qrUrl;
+            openModal('shareModal');
+        }
+
+        function copyConfigCode() {
+            navigator.clipboard.writeText(JSON.stringify(listItems));
+            alert('Đã sao chép mã cấu hình!');
+        }
+
+        function openImportModal() {
+            document.getElementById('importCode').value = '';
+            openModal('importModal');
+        }
+
+        async function pasteFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById('importCode').value = text;
+            } catch (err) {
+                alert('Hãy dán thủ công vào ô văn bản.');
+            }
+        }
+
+        function processImport() {
+            const code = document.getElementById('importCode').value.trim();
+            if (!code) return alert('Vui lòng dán mã cấu hình!');
+            try {
+                const parsed = JSON.parse(code);
+                if (Array.isArray(parsed)) {
+                    listItems = parsed;
+                    saveItems();
+                    closeModal('importModal');
+                    alert(`Đã nạp thành công ${listItems.length} mặt hàng!`);
+                } else throw new Error();
+            } catch (e) {
+                alert('Mã cấu hình không hợp lệ!');
+            }
+        }
+
+        renderItems();
+    </script>
+</body>
+</html>
